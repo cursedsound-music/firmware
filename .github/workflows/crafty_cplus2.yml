@@ -1,0 +1,54 @@
+name: Build Bruce + BLE GATT (StickC Plus2)
+
+on:
+  push:
+    branches:
+      - ble-gatt-client
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PIO_ENV: m5stack-cplus2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install host compiler for JS stdlib generator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-multilib libc6-dev-i386
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio/libdeps
+          key: ${{ runner.os }}-pio-${{ env.PIO_ENV }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio requests esptool intelhex
+
+      - name: Set version
+        run: |
+          version="ble-${GITHUB_SHA::7}"
+          sed -i "s/-DBRUCE_VERSION=/-DBRUCE_VERSION='\"$version\"' ; /g" ./platformio.ini
+
+      - name: Build
+        run: |
+          set -o pipefail
+          platformio run -e "$PIO_ENV" | tee build.log
+
+      - name: Upload firmware + script
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bruce-${{ env.PIO_ENV }}-ble-gatt
+          path: |
+            Bruce-*.bin
+            sd_files/interpreter/crafty.js
+          if-no-files-found: error
