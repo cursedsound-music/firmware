@@ -44,6 +44,13 @@ jobs:
           set -o pipefail
           platformio run -e "$PIO_ENV" | tee build.log
 
+      - name: Report build errors
+        if: failure()
+        run: |
+          msg=$(grep -nE "error|Error|undefined reference|\*\*\*" build.log | grep -v "Werror\|error_" | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Build errors::${msg}"
+          tail -n 40 build.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | sed 's/^/::error title=Build tail::/' ; echo
+
       - name: Upload firmware + script
         uses: actions/upload-artifact@v4
         with:
